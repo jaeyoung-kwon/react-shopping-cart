@@ -12288,7 +12288,7 @@ const reset = css`
   }
 `;
 async function enableMocking() {
-  const { worker } = await __vitePreload(() => import("./browser-Cm04KqPi.js"), true ? [] : void 0);
+  const { worker } = await __vitePreload(() => import("./browser-MmHdbv4B.js"), true ? [] : void 0);
   await worker.start({
     serviceWorker: {
       url: "/react-shopping-cart/mockServiceWorker.js"
