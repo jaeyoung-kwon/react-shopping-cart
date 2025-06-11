@@ -2,13 +2,13 @@ type Data<T> = {
   data: T | null;
   isLoading: boolean;
   isError: boolean;
-  fetchFn?: () => Promise<T>;
+  fetchFn: () => Promise<T>;
+  updatedAt: number;
 };
 
-type Store = Record<string, Data<unknown>>;
 type Listener = () => void;
 
-const store: Store = {};
+const store = new Map<string, Data<unknown>>();
 const listeners: Record<string, Set<Listener>> = {};
 
 export function subscribe(key: string, callback: Listener) {
@@ -29,16 +29,16 @@ export function subscribe(key: string, callback: Listener) {
 export function getSnapshot<T>(key: string) {
   // console.log(`getSnapshot called for key: ${key}`);
   // console.log(`Current store:`, store);
-  return store[key] as Data<T>;
+  return store.get(key) as Data<T>;
 }
 
 export function updateData<T>(key: string, newValue: Partial<Data<T>>) {
-  const prev = store[key] as Data<T>;
+  const prev = store.get(key) as Data<T>;
 
-  store[key] = {
+  store.set(key, {
     ...prev,
     ...newValue,
-  };
+  });
 
   listeners[key]?.forEach((cb) => cb());
 }
@@ -51,7 +51,7 @@ export async function refetchData<T>(
     onError?: () => void;
   }
 ) {
-  const storeItem = store[key] as Data<T> | undefined;
+  const storeItem = store.get(key) as Data<T>;
 
   const finalFetchFn = options?.fetchFn ?? storeItem?.fetchFn;
 
@@ -66,6 +66,7 @@ export async function refetchData<T>(
       isLoading: false,
       isError: false,
       fetchFn: finalFetchFn,
+      updatedAt: Date.now(),
     });
     options?.onSuccess?.();
     return result;

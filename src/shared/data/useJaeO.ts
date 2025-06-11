@@ -13,6 +13,7 @@ interface UseJaeOOptions<T, R = T> {
   convertFn?: (raw: T) => R;
   onError?: () => void;
   onSuccess?: () => void;
+  staleTime?: number;
 }
 
 export function useJaeO<T, R = T>({
@@ -21,6 +22,7 @@ export function useJaeO<T, R = T>({
   convertFn,
   onError,
   onSuccess,
+  staleTime = 0,
 }: UseJaeOOptions<T, R>) {
   const fetchFnRef = useRef(fetchFn);
   const convertFnRef = useRef(convertFn);
@@ -39,29 +41,28 @@ export function useJaeO<T, R = T>({
     useCallback(
       (cb) => {
         const unsubscribe = subscribe(fetchKey, cb);
-        fetchAndUpdateData();
+
+        const curSnapshot = getSnapshot<T>(fetchKey);
+        const shouldFetch =
+          !curSnapshot?.data ||
+          Date.now() - (curSnapshot?.updatedAt ?? 0) > staleTime;
+        if (shouldFetch) {
+          fetchAndUpdateData();
+        }
+
         return unsubscribe;
       },
-      [fetchAndUpdateData, fetchKey]
+      [fetchAndUpdateData, fetchKey, staleTime]
     ),
     () => getSnapshot<T>(fetchKey)
   );
 
   useEffect(() => {
     fetchFnRef.current = fetchFn;
-  }, [fetchFn]);
-
-  useEffect(() => {
     convertFnRef.current = convertFn;
-  }, [convertFn]);
-
-  useEffect(() => {
     onErrorRef.current = onError;
-  }, [onError]);
-
-  useEffect(() => {
     onSuccessRef.current = onSuccess;
-  }, [onSuccess]);
+  });
 
   const convertedData = useMemo(
     () =>
