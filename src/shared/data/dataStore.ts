@@ -12,6 +12,7 @@ const store = new Map<string, Data<unknown>>();
 const listeners: Record<string, Set<Listener>> = {};
 
 const gcTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+const inFlightFetches = new Map<string, Promise<unknown>>();
 
 export function subscribe(key: string, callback: Listener, gcTime: number) {
   console.log(`subscribe called for key: ${key}`);
@@ -69,29 +70,40 @@ export async function refetchData<T>(
   const storeItem = store.get(key) as Data<T>;
 
   const finalFetchFn = options?.fetchFn ?? storeItem?.fetchFn;
-
   if (!finalFetchFn) return null;
+
+  if (inFlightFetches.has(key)) {
+    return inFlightFetches.get(key);
+  }
 
   updateData(key, { isLoading: true, isError: false });
 
-  try {
-    const result = await finalFetchFn();
-    updateData(key, {
-      data: result,
-      isLoading: false,
-      isError: false,
-      fetchFn: finalFetchFn,
-      updatedAt: Date.now(),
+  const fetchPromise = finalFetchFn()
+    .then((result) => {
+      updateData(key, {
+        data: result,
+        isLoading: false,
+        isError: false,
+        fetchFn: finalFetchFn,
+        updatedAt: Date.now(),
+      });
+      options?.onSuccess?.();
+      return result;
+    })
+    .catch(() => {
+      updateData(key, {
+        data: null,
+        isLoading: false,
+        isError: true,
+      });
+      options?.onError?.();
+      return null;
+    })
+    .finally(() => {
+      inFlightFetches.delete(key);
     });
-    options?.onSuccess?.();
-    return result;
-  } catch (error) {
-    updateData(key, {
-      data: null,
-      isLoading: false,
-      isError: true,
-    });
-    options?.onError?.();
-    return null;
-  }
+
+  inFlightFetches.set(key, fetchPromise);
+
+  return fetchPromise;
 }
