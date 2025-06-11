@@ -14,6 +14,7 @@ interface UseJaeOOptions<T, R = T> {
   onError?: () => void;
   onSuccess?: () => void;
   staleTime?: number;
+  gcTime?: number;
 }
 
 export function useJaeO<T, R = T>({
@@ -23,6 +24,7 @@ export function useJaeO<T, R = T>({
   onError,
   onSuccess,
   staleTime = 0,
+  gcTime = 3000,
 }: UseJaeOOptions<T, R>) {
   const fetchFnRef = useRef(fetchFn);
   const convertFnRef = useRef(convertFn);
@@ -40,7 +42,7 @@ export function useJaeO<T, R = T>({
   const snapshot = useSyncExternalStore(
     useCallback(
       (cb) => {
-        const unsubscribe = subscribe(fetchKey, cb);
+        const unsubscribe = subscribe(fetchKey, cb, gcTime);
 
         const curSnapshot = getSnapshot<T>(fetchKey);
         const shouldFetch =
@@ -52,7 +54,7 @@ export function useJaeO<T, R = T>({
 
         return unsubscribe;
       },
-      [fetchAndUpdateData, fetchKey, staleTime]
+      [fetchAndUpdateData, fetchKey, gcTime, staleTime]
     ),
     () => getSnapshot<T>(fetchKey)
   );

@@ -11,24 +11,39 @@ type Listener = () => void;
 const store = new Map<string, Data<unknown>>();
 const listeners: Record<string, Set<Listener>> = {};
 
-export function subscribe(key: string, callback: Listener) {
-  // console.log(`subscribe called for key: ${key}`);
-  // console.log(`Current listeners:`, listeners);
+const gcTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+export function subscribe(key: string, callback: Listener, gcTime: number) {
+  console.log(`subscribe called for key: ${key}`);
+  console.log(`Current listeners:`, listeners);
   if (!listeners[key]) {
     listeners[key] = new Set();
   }
-  if (!listeners[key].has(callback)) {
-    listeners[key].add(callback);
+  listeners[key].add(callback);
+
+  const timeout = gcTimeouts.get(key);
+  if (timeout) {
+    clearTimeout(timeout);
+    gcTimeouts.delete(key);
   }
 
   return () => {
     listeners[key]?.delete(callback);
+
+    if (listeners[key]?.size === 0) {
+      delete listeners[key];
+      const timeout = setTimeout(() => {
+        store.delete(key);
+        gcTimeouts.delete(key);
+      }, gcTime);
+      gcTimeouts.set(key, timeout);
+    }
   };
 }
 
 export function getSnapshot<T>(key: string) {
-  // console.log(`getSnapshot called for key: ${key}`);
-  // console.log(`Current store:`, store);
+  console.log(`getSnapshot called for key: ${key}`);
+  console.log(`Current store:`, store);
   return store.get(key) as Data<T>;
 }
 
